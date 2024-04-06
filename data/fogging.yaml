@@ -1,0 +1,18 @@
+train: datasets/images/train
+val:   datasets/images/val
+#
+clear_train: datasets/images/n_train
+
+nc: 8
+
+#Classes
+names:
+  0: person
+  1: car
+  2: train
+  3: rider
+  4: truck
+  5: motorcycle
+  6: bicycle
+  7: bus
+
