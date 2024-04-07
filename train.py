@@ -355,7 +355,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 print("loss", loss)
 
                 #add dehaze loss to total loss
-                loss = loss + 1
+                loss = loss + d_loss.item()
                 print("final loss", loss)
 
                 if RANK != -1:
