@@ -132,12 +132,11 @@ class BaseModel(nn.Module):
                     act_rst = True
             if (act_rst == True) and (self.init_anchor == False) :
                rst_feats = self.img_rst(feats_7, feats_5, feats_3)
-               print("show restored features::", x)
                act_rst == False
 
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
-                
+        print("rst_feats size: ", rst_feats.size())
         return x, rst_feats
 
     def _profile_one_layer(self, m, x, dt):
