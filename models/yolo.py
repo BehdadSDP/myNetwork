@@ -132,6 +132,7 @@ class BaseModel(nn.Module):
                     act_rst = True
             if (act_rst == True) and (self.init_anchor == False) :
                rst_feats = self.img_rst(feats_7, feats_5, feats_3)
+               print("show restored features::", rst_feats)
                act_rst == False
 
             if visualize:
