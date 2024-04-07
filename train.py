@@ -354,7 +354,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 #add dehaze loss to total loss
                 #loss = loss + d_loss
                 print("loss shape", loss.size())
-                
+                print("d_loss shape", d_loss.size())
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
