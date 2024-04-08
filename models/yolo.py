@@ -121,6 +121,7 @@ class BaseModel(nn.Module):
                 self._profile_one_layer(m, x, dt)
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
+            
             #Image Enhancment:
             if True:
                 if m.i == 3 :  
@@ -322,6 +323,7 @@ class ImageRst(nn.Module):
         #Input: 128*40*40
         # Upsampling
         # inputsize:128*40*40, outputsize:64*80*80
+
         self.conv_1 = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(64),
@@ -350,7 +352,6 @@ class ImageRst(nn.Module):
             nn.Conv2d(20, output_nc, 7),
             nn.Tanh()
          )
-
 
     def forward(self, x, y, z):
         """Standard forward"""
@@ -442,6 +443,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 
 
 if __name__ == '__main__':
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='./cfg/XM-YOLOViT.yaml', help='model.yaml')
     parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs')
