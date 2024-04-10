@@ -308,7 +308,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         optimizer.zero_grad()
         for i, ((imgs, targets, paths, _) , (cimg, _, _, _)) in fpbar:  # batch -------------------------------------------------------------
             
-            '''if((epoch == 1) or (epoch == 5) or (epoch == 10) or (epoch == 15)):
+            if((epoch == 1) or (epoch == 5) or (epoch == 10) or (epoch == 15)):
                 check_image = imgs[1, :, :, :]
                 check_clear_image = cimg[1, :, :, :]    
                 transform = T.ToPILImage()
@@ -316,7 +316,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 check_clear_image = transform(check_clear_image)
                 check_image= check_image.save("1.jpg")
                 check_clear_image = check_clear_image.save("2.jpg")
-            '''
+            
 
             callbacks.run('on_train_batch_start')
             ni = i + nb * epoch  # number integrated batches (since train start)
@@ -484,8 +484,8 @@ def parse_opt(known=False):
     parser.add_argument('--cfg', type=str, default=ROOT / 'cfg/XM-YOLOViT.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default=ROOT / 'data/fogging.yaml', help='dataset.yaml path')
     parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch-low.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=10, help='total training epochs')
-    parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs, -1 for autobatch')
+    parser.add_argument('--epochs', type=int, default=150, help='total training epochs')
+    parser.add_argument('--batch-size', type=int, default=8, help='total batch size for all GPUs, -1 for autobatch')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
