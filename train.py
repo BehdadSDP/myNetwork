@@ -374,9 +374,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                     return
                 
             #Save images for checking their similarity
-            print("rst size:", rst_out.size())
-            if True:
-                if(epoch in {0}):
+            if False:
+                if(epoch in {100}):
                     for b in range(7):
                         hazy_image = imgs[b, :, :, :]
                         clear_image = cimg[b, :, :, :]    
