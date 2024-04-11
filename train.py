@@ -383,7 +383,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 hazy_image = transform(hazy_image)
                 clear_image = transform(clear_image)
                 hazy_image.save(f"hazy_image_{epoch}.jpg")
-                clear_image.save(f"clear_image{epoch}.jpg")
+                clear_image.save(f"clear_image_{epoch}.jpg")
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
