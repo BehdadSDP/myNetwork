@@ -368,21 +368,21 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
                 fpbar.set_description(('%11s' * 2 + '%11.4g' * 6) %
-                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1], 11))
+                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1], d_loss.item()))
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
                 
             #Save images for checking their similarity
             if True:
-                #if(epoch in {0, 1, 2}):
-                hazy_image = imgs[0, :, :, :]
-                clear_image = cimg[0, :, :, :]    
-                transform = T.ToPILImage()
-                hazy_image = transform(hazy_image)
-                clear_image = transform(clear_image)
-                hazy_image.save(f"/media/behi/B81A533B1A52F5BA/my_projects/myNetwork/checking_similarity/{epoch}_{i}_h.jpg")
-                clear_image.save(f"/media/behi/B81A533B1A52F5BA/my_projects/myNetwork/checking_similarity/{epoch}_{i}_c.jpg")
+                if(epoch in {0, 1, 2}):
+                    hazy_image = imgs[4, :, :, :]
+                    clear_image = cimg[4, :, :, :]    
+                    transform = T.ToPILImage()
+                    hazy_image = transform(hazy_image)
+                    clear_image = transform(clear_image)
+                    hazy_image.save(f"/kaggle_working/check_similarity/{epoch}_{i}_h.jpg")
+                    clear_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_c.jpg")
             # end batch ------------------------------------------------------------------------------------------------
 
         #Save images for checking their similarity
