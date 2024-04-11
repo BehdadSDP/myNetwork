@@ -374,7 +374,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                     return
                 
             #Save images for checking their similarity
-            print("rst size:", rst_out)
+            print("rst size:", rst_out.size())
             if True:
                 if(epoch in {0}):
                     for b in range(7):
