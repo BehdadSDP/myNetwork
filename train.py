@@ -374,27 +374,18 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                     return
                 
             #Save images for checking their similarity
+            print("rst size:", rst_out)
             if True:
-                if(epoch in {0, 1, 2}):
-                    hazy_image = imgs[4, :, :, :]
-                    clear_image = cimg[4, :, :, :]    
-                    transform = T.ToPILImage()
-                    hazy_image = transform(hazy_image)
-                    clear_image = transform(clear_image)
-                    hazy_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_h.jpg")
-                    clear_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_c.jpg")
+                if(epoch in {0}):
+                    for b in range(7):
+                        hazy_image = imgs[b, :, :, :]
+                        clear_image = cimg[b, :, :, :]    
+                        transform = T.ToPILImage()
+                        hazy_image = transform(hazy_image)
+                        clear_image = transform(clear_image)
+                        hazy_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_{b}_h.jpg")
+                        clear_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_{b}_c.jpg")
             # end batch ------------------------------------------------------------------------------------------------
-
-        #Save images for checking their similarity
-        if False:
-            if(epoch in {0, 1, 2}):
-                hazy_image = imgs[0, :, :, :]
-                clear_image = cimg[0, :, :, :]    
-                transform = T.ToPILImage()
-                hazy_image = transform(hazy_image)
-                clear_image = transform(clear_image)
-                hazy_image.save(f"/media/behi/B81A533B1A52F5BA/my_projects/myNetwork/checking_similarity/{epoch}_h.jpg")
-                clear_image.save(f"/media/behi/B81A533B1A52F5BA/my_projects/myNetwork/checking_similarity/{epoch}_c.jpg")
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
