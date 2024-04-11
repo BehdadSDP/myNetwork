@@ -381,7 +381,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                     transform = T.ToPILImage()
                     hazy_image = transform(hazy_image)
                     clear_image = transform(clear_image)
-                    hazy_image.save(f"/kaggle_working/check_similarity/{epoch}_{i}_h.jpg")
+                    hazy_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_h.jpg")
                     clear_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_c.jpg")
             # end batch ------------------------------------------------------------------------------------------------
 
