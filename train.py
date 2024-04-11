@@ -376,14 +376,14 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
         #Save images for checking their similarity
         if True:
-            if(epoch in {1, 5, 10, 15, 20}):
+            if(epoch in {0, 1, 2}):
                 hazy_image = imgs[0, :, :, :]
                 clear_image = cimg[0, :, :, :]    
                 transform = T.ToPILImage()
                 hazy_image = transform(hazy_image)
                 clear_image = transform(clear_image)
-                hazy_image.save("hazy_image.jpg")
-                clear_image.save("clear_image.jpg")
+                hazy_image.save(f"hazy_image_{epoch}.jpg")
+                clear_image.save(f"clear_image{epoch}.jpg")
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
