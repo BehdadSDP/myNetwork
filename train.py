@@ -372,9 +372,9 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
-                
+            
             #Save images for checking their similarity
-            if False:
+            if True:
                 if(epoch in {100}):
                     for b in range(7):
                         hazy_image = imgs[b, :, :, :]
