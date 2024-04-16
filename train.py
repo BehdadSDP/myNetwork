@@ -339,11 +339,11 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 pred, rst_out = model(imgs)  # forward
                 
                 #dehaze loss
-                d_loss = dehazeloss(cimg, rst_out)
+                #d_loss = dehazeloss(cimg, rst_out)
                 loss, loss_items = compute_loss(pred, targets.to(device))# loss scaled by batch_size
 
                 #add dehaze loss to total loss
-                loss = loss + d_loss.item()
+                #loss = loss + d_loss.item()
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -367,23 +367,23 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             if RANK in {-1, 0}:
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                fpbar.set_description(('%11s' * 2 + '%11.4g' * 6) %
-                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1], d_loss.item()))
+                fpbar.set_description(('%11s' * 2 + '%11.4g' * 5) %
+                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
             
             #Save images for checking their similarity
             if True:
-                if(epoch in {100}):
-                    for b in range(7):
+                if(epoch in {0,1,2}):
+                    for b in range(1):
                         hazy_image = imgs[b, :, :, :]
                         clear_image = cimg[b, :, :, :]    
                         transform = T.ToPILImage()
                         hazy_image = transform(hazy_image)
                         clear_image = transform(clear_image)
-                        hazy_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_{b}_h.jpg")
-                        clear_image.save(f"/kaggle/working/check_similarity/{epoch}_{i}_{b}_c.jpg")
+                        hazy_image.save(f"./checking_similarity/{epoch}_{i}_{b}_h.jpg")
+                        clear_image.save(f"./checking_similarity/{epoch}_{i}_{b}_c.jpg")
             # end batch ------------------------------------------------------------------------------------------------
 
         # Scheduler
