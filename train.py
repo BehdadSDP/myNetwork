@@ -190,6 +190,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
     # Trainloader
     train_loader, dataset = create_dataloader(train_path,
+                                              clear_train_path,
                                               imgsz,
                                               batch_size // WORLD_SIZE,
                                               gs,
@@ -203,23 +204,6 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                                               image_weights=opt.image_weights,
                                               quad=opt.quad,
                                               prefix=colorstr('train: '),
-                                              shuffle=True,
-                                              seed=opt.seed)
-    #clear Trainloader
-    clear_train_loader, clear_dataset = create_dataloader(clear_train_path,
-                                              imgsz,
-                                              batch_size // WORLD_SIZE,
-                                              gs,
-                                              single_cls,
-                                              hyp=hyp,
-                                              augment=True,
-                                              cache=None if opt.cache == 'val' else opt.cache,
-                                              rect=opt.rect,
-                                              rank=LOCAL_RANK,
-                                              workers=workers,
-                                              image_weights=opt.image_weights,
-                                              quad=opt.quad,
-                                              prefix=colorstr('n_train: '),
                                               shuffle=True,
                                               seed=opt.seed)
 
@@ -299,14 +283,12 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
 
-        new_d = zip(train_loader, clear_train_loader)
-        fpbar = enumerate(new_d)
-        #pbar = enumerate(train_loader)
+        pbar = enumerate(train_loader)
         LOGGER.info(('\n' + '%11s' * 8) % ('Epoch', 'GPU_mem', 'box_loss', 'obj_loss', 'cls_loss', 'Instances', 'Size', 'd_loss'))
         if RANK in {-1, 0}:
             fpbar = tqdm(fpbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
         optimizer.zero_grad()
-        for i, ((imgs, targets, paths, _) , (cimg, _, _, _)) in fpbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, paths, _) in fpbar:  # batch -------------------------------------------------------------
             
             callbacks.run('on_train_batch_start')
             ni = i + nb * epoch  # number integrated batches (since train start)
@@ -339,11 +321,11 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 pred, rst_out = model(imgs)  # forward
                 
                 #dehaze loss
-                #d_loss = dehazeloss(cimg, rst_out)
+                d_loss = dehazeloss(cimg, rst_out)
                 loss, loss_items = compute_loss(pred, targets.to(device))# loss scaled by batch_size
 
                 #add dehaze loss to total loss
-                #loss = loss + d_loss.item()
+                loss = loss + d_loss.item()
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -367,8 +349,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             if RANK in {-1, 0}:
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                fpbar.set_description(('%11s' * 2 + '%11.4g' * 5) %
-                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
+                fpbar.set_description(('%11s' * 2 + '%11.4g' * 6) %
+                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1],d_loss))
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
@@ -485,7 +467,7 @@ def parse_opt(known=False):
     parser.add_argument('--cfg', type=str, default=ROOT / 'cfg/XM-YOLOViT.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default=ROOT / 'data/fogging.yaml', help='dataset.yaml path')
     parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch-low.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=3, help='total training epochs')
+    parser.add_argument('--epochs', type=int, default=2, help='total training epochs')
     parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs, -1 for autobatch')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
