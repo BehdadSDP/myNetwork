@@ -64,7 +64,7 @@ def denormalize(x, mean=IMAGENET_MEAN, std=IMAGENET_STD):
     return x
 
 
-def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
+def augment_hsv(im, cim, hgain=0.5, sgain=0.5, vgain=0.5):
     # HSV color-space augmentation
     if hgain or sgain or vgain:
         r = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
@@ -78,7 +78,17 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
 
         im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
         cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=im)  # no return needed
+        #*******************************************start clear images******************************************#
+        hue, sat, val = cv2.split(cv2.cvtColor(cim, cv2.COLOR_BGR2HSV))
+        dtype = cim.dtype  # uint8
 
+        x = np.arange(0, 256, dtype=r.dtype)
+        lut_hue = ((x * r[0]) % 180).astype(dtype)
+        lut_sat = np.clip(x * r[1], 0, 255).astype(dtype)
+        lut_val = np.clip(x * r[2], 0, 255).astype(dtype)
+
+        im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
+        cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=cim)  # no return needed
 
 def hist_equalize(im, clahe=True, bgr=False):
     # Equalize histogram on BGR image 'im' with im.shape(n,m,3) and range 0-255
@@ -142,6 +152,7 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
 
 
 def random_perspective(im,
+                       cim,
                        targets=(),
                        segments=(),
                        degrees=10,
@@ -189,8 +200,11 @@ def random_perspective(im,
     if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
         if perspective:
             im = cv2.warpPerspective(im, M, dsize=(width, height), borderValue=(114, 114, 114))
+            cim = cv2.warpPerspective(cim, M, dsize=(width, height), borderValue=(114, 114, 114))
+
         else:  # affine
             im = cv2.warpAffine(im, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+            cim = cv2.warpAffine(cim, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
 
     # Visualize
     # import matplotlib.pyplot as plt
@@ -234,7 +248,7 @@ def random_perspective(im,
         targets = targets[i]
         targets[:, 1:5] = new[i]
 
-    return im, targets
+    return im, targets, cim
 
 
 def copy_paste(im, labels, segments, p=0.5):

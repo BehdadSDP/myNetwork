@@ -101,6 +101,7 @@ def seed_worker(worker_id):
 
 
 def create_dataloader(path,
+                      cpath,
                       imgsz,
                       batch_size,
                       stride,
@@ -123,6 +124,7 @@ def create_dataloader(path,
     with torch_distributed_zero_first(rank):  # init dataset *.cache only once if DDP
         dataset = LoadImagesAndLabels(
             path,
+            cpath,
             imgsz,
             batch_size,
             augment=augment,  # augmentation
@@ -438,6 +440,7 @@ class LoadImagesAndLabels(Dataset):
 
     def __init__(self,
                  path,
+                 cpath,
                  img_size=640,
                  batch_size=16,
                  augment=False,
@@ -459,6 +462,7 @@ class LoadImagesAndLabels(Dataset):
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path
+        self.cpath = cpath
         self.albumentations = Albumentations(size=img_size) if augment else None
 
         try:
@@ -481,7 +485,28 @@ class LoadImagesAndLabels(Dataset):
             assert self.im_files, f'{prefix}No images found'
         except Exception as e:
             raise Exception(f'{prefix}Error loading data from {path}: {e}\n{HELP_URL}') from e
-
+        #*******************************************start clear images******************************************#
+        try:
+            cf = []  # clear image files
+            for p in cpath if isinstance(path, list) else [cpath]:
+                p = Path(p)  # os-agnostic
+                if p.is_dir():  # dir
+                    cf += glob.glob(str(p / '**' / '*.*'), recursive=True)
+                    # f = list(p.rglob('*.*'))  # pathlib
+                elif p.is_file():  # file
+                    with open(p) as t:
+                        t = t.read().strip().splitlines()
+                        parent = str(p.parent) + os.sep
+                        cf += [x.replace('./', parent, 1) if x.startswith('./') else x for x in t]  # to global path
+                        # f += [p.parent / x.lstrip(os.sep) for x in t]  # to global path (pathlib)
+                else:
+                    raise FileNotFoundError(f'{prefix}{p} does not exist')
+            self.cim_files = sorted(x.replace('/', os.sep) for x in cf if x.split('.')[-1].lower() in IMG_FORMATS)
+            # self.img_files = sorted([x for x in f if x.suffix[1:].lower() in IMG_FORMATS])  # pathlib
+            assert self.cim_files, f'{prefix}No images found'
+        except Exception as e:
+            raise Exception(f'{prefix}Error loading data from {cpath}: {e}\n{HELP_URL}') from e
+        #*******************************************end clear images******************************************#
         # Check cache
         self.label_files = img2label_paths(self.im_files)  # labels
         cache_path = (p if p.is_file() else Path(self.label_files[0]).parent).with_suffix('.cache')
@@ -585,7 +610,26 @@ class LoadImagesAndLabels(Dataset):
                     b += self.ims[i].nbytes
                 pbar.desc = f'{prefix}Caching images ({b / gb:.1f}GB {cache_images})'
             pbar.close()
-
+        #*******************************************start clear images******************************************#
+        if cache_images == 'ram' and not self.check_cache_ram(prefix=prefix):
+            cache_images = False
+        self.cims = [None] * n
+        self.npy_cfiles = [Path(cf).with_suffix('.npy') for cf in self.cim_files]
+        if cache_images:
+            b, gb = 0, 1 << 30  # bytes of cached images, bytes per gigabytes
+            self.cim_hw0, self.cim_hw = [None] * n, [None] * n
+            fcn = self.cache_images_to_disk if cache_images == 'disk' else self.load_image
+            results = ThreadPool(NUM_THREADS).imap(fcn, range(n))
+            cpbar = tqdm(enumerate(results), total=n, bar_format=TQDM_BAR_FORMAT, disable=LOCAL_RANK > 0)
+            for i, x in cpbar:
+                if cache_images == 'disk':
+                    b += self.npy_cfiles[i].stat().st_size
+                else:  # 'ram'
+                    self.cims[i], self.cim_hw0[i], self.cim_hw[i] = x  # im, hw_orig, hw_resized = load_image(self, i)
+                    b += self.cims[i].nbytes
+                cpbar.desc = f'{prefix}Caching images ({b / gb:.1f}GB {cache_images})'
+            cpbar.close()
+        #*******************************************end clear images******************************************#    
     def check_cache_ram(self, safety_margin=0.1, prefix=''):
         # Check image caching requirements vs available memory
         b, gb = 0, 1 << 30  # bytes of cached images, bytes per gigabytes
@@ -657,7 +701,7 @@ class LoadImagesAndLabels(Dataset):
         mosaic = self.mosaic and random.random() < hyp['mosaic']
         if mosaic:
             # Load mosaic
-            img, labels = self.load_mosaic(index)
+            img, labels, cimg = self.load_mosaic(index)
             shapes = None
 
             # MixUp augmentation
@@ -666,11 +710,12 @@ class LoadImagesAndLabels(Dataset):
 
         else:
             # Load image
-            img, (h0, w0), (h, w) = self.load_image(index)
+            img, (h0, w0), (h, w), cimg, (ch0, cw0), (ch, cw) = self.load_image(index)
 
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
+            cimg, _, _ = letterbox(cimg, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
             labels = self.labels[index].copy()
@@ -678,13 +723,14 @@ class LoadImagesAndLabels(Dataset):
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
             if self.augment:
-                img, labels = random_perspective(img,
-                                                 labels,
-                                                 degrees=hyp['degrees'],
-                                                 translate=hyp['translate'],
-                                                 scale=hyp['scale'],
-                                                 shear=hyp['shear'],
-                                                 perspective=hyp['perspective'])
+                img, labels, cimg = random_perspective(img,
+                                                    cimg,
+                                                    labels,
+                                                    degrees=hyp['degrees'],
+                                                    translate=hyp['translate'],
+                                                    scale=hyp['scale'],
+                                                    shear=hyp['shear'],
+                                                    perspective=hyp['perspective'])
 
         nl = len(labels)  # number of labels
         if nl:
@@ -696,17 +742,19 @@ class LoadImagesAndLabels(Dataset):
             nl = len(labels)  # update after albumentations
 
             # HSV color-space
-            augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+            augment_hsv(img, cimg, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
             # Flip up-down
             if random.random() < hyp['flipud']:
                 img = np.flipud(img)
+                cimg = np.flipud(cimg)
                 if nl:
                     labels[:, 2] = 1 - labels[:, 2]
 
             # Flip left-right
             if random.random() < hyp['fliplr']:
                 img = np.fliplr(img)
+                cimg = np.fliplr(cimg)
                 if nl:
                     labels[:, 1] = 1 - labels[:, 1]
 
@@ -720,9 +768,10 @@ class LoadImagesAndLabels(Dataset):
 
         # Convert
         img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        cimg = cimg.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
         img = np.ascontiguousarray(img)
-
-        return torch.from_numpy(img), labels_out, self.im_files[index], shapes
+        cimg = np.ascontiguousarray(cimg)
+        return torch.from_numpy(img), torch.from_numpy(cimg), labels_out, self.im_files[index], shapes
 
     def load_image(self, i):
         # Loads 1 image from dataset index 'i', returns (im, original hw, resized hw)
@@ -738,9 +787,24 @@ class LoadImagesAndLabels(Dataset):
             if r != 1:  # if sizes are not equal
                 interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
                 im = cv2.resize(im, (math.ceil(w0 * r), math.ceil(h0 * r)), interpolation=interp)
-            return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
-        return self.ims[i], self.im_hw0[i], self.im_hw[i]  # im, hw_original, hw_resized
-
+        #*******************************************start clear images******************************************#
+        # Loads 1 image from dataset index 'i', returns (im, original hw, resized hw)
+        cim, cf, cfn = self.cims[i], self.cim_files[i], self.npy_cfiles[i],
+        if cim is None:  # not cached in RAM
+            if cfn.exists():  # load npy
+                cim = np.load(cfn)
+            else:  # read image
+                cim = cv2.imread(cf)  # BGR
+                assert cim is not None, f'Image Not Found {cf}'
+            ch0, cw0 = cim.shape[:2]  # orig hw
+            r = self.img_size / max(ch0, cw0)  # ratio
+            if r != 1:  # if sizes are not equal
+                interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
+                cim = cv2.resize(cim, (math.ceil(cw0 * r), math.ceil(ch0 * r)), interpolation=interp)
+        #*******************************************end clear images******************************************#
+            return im, (h0, w0), im.shape[:2], cim, (ch0, cw0), cim.shape[:2]  # im, hw_original, hw_resized
+        return  self.ims[i], self.im_hw0[i], self.im_hw[i], self.cims[i], self.cim_hw0[i], self.cim_hw[i]  # cim, hw_original, hw_resized
+    
     def cache_images_to_disk(self, i):
         # Saves an image as an *.npy file for faster loading
         f = self.npy_files[i]
@@ -756,11 +820,13 @@ class LoadImagesAndLabels(Dataset):
         random.shuffle(indices)
         for i, index in enumerate(indices):
             # Load image
-            img, _, (h, w) = self.load_image(index)
+            img, _, (h, w), cimg, _, (ch, cw) = self.load_image(index)
 
             # place img in img4
             if i == 0:  # top left
                 img4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+                #clear image
+                cimg4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
                 x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
                 x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
             elif i == 1:  # top right
@@ -774,6 +840,8 @@ class LoadImagesAndLabels(Dataset):
                 x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
 
             img4[y1a:y2a, x1a:x2a] = img[y1b:y2b, x1b:x2b]  # img4[ymin:ymax, xmin:xmax]
+            #clear image
+            cimg4[y1a:y2a, x1a:x2a] = cimg[y1b:y2b, x1b:x2b]
             padw = x1a - x1b
             padh = y1a - y1b
 
@@ -793,7 +861,8 @@ class LoadImagesAndLabels(Dataset):
 
         # Augment
         img4, labels4, segments4 = copy_paste(img4, labels4, segments4, p=self.hyp['copy_paste'])
-        img4, labels4 = random_perspective(img4,
+        img4, labels4, cimg4 = random_perspective(img4,
+                                           cimg4,
                                            labels4,
                                            segments4,
                                            degrees=self.hyp['degrees'],
@@ -803,7 +872,7 @@ class LoadImagesAndLabels(Dataset):
                                            perspective=self.hyp['perspective'],
                                            border=self.mosaic_border)  # border to remove
 
-        return img4, labels4
+        return img4, labels4, cimg4
 
     def load_mosaic9(self, index):
         # YOLOv5 9-mosaic loader. Loads 1 image + 8 random images into a 9-image mosaic
@@ -884,10 +953,10 @@ class LoadImagesAndLabels(Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        im, label, path, shapes = zip(*batch)  # transposed
+        im,cimg, label, path, shapes = zip(*batch)  # transposed
         for i, lb in enumerate(label):
             lb[:, 0] = i  # add target image index for build_targets()
-        return torch.stack(im, 0), torch.cat(label, 0), path, shapes
+        return torch.stack(im, 0), torch.stack(cimg, 0), torch.cat(label, 0), path, shapes
 
     @staticmethod
     def collate_fn4(batch):

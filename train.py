@@ -214,6 +214,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     # Process 0
     if RANK in {-1, 0}:
         val_loader = create_dataloader(val_path,
+                                       clear_train_path,
                                        imgsz,
                                        batch_size // WORLD_SIZE * 2,
                                        gs,
@@ -284,19 +285,17 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             train_loader.sampler.set_epoch(epoch)
 
         pbar = enumerate(train_loader)
-        LOGGER.info(('\n' + '%11s' * 8) % ('Epoch', 'GPU_mem', 'box_loss', 'obj_loss', 'cls_loss', 'Instances', 'Size', 'd_loss'))
+        LOGGER.info(('\n' + '%11s' * 7) % ('Epoch', 'GPU_mem', 'box_loss', 'obj_loss', 'cls_loss', 'Instances', 'Size'))
         if RANK in {-1, 0}:
-            fpbar = tqdm(fpbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
+            pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
         optimizer.zero_grad()
-        for i, (imgs, targets, paths, _) in fpbar:  # batch -------------------------------------------------------------
+        for i, (imgs, cimgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
             
             callbacks.run('on_train_batch_start')
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
-            #image restoration
-            cimg = cimg.to(device, non_blocking = True).float() / 255
-            
+            #image restoration            
             # Warmup
             if ni <= nw:
                 xi = [0, nw]  # x interp
@@ -320,12 +319,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             with torch.cuda.amp.autocast(amp):
                 pred, rst_out = model(imgs)  # forward
                 
-                #dehaze loss
-                d_loss = dehazeloss(cimg, rst_out)
                 loss, loss_items = compute_loss(pred, targets.to(device))# loss scaled by batch_size
-
-                #add dehaze loss to total loss
-                loss = loss + d_loss.item()
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -349,8 +343,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             if RANK in {-1, 0}:
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
                 mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                fpbar.set_description(('%11s' * 2 + '%11.4g' * 6) %
-                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1],d_loss))
+                pbar.set_description(('%11s' * 2 + '%11.4g' * 5) %
+                                     (f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
@@ -360,7 +354,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 if(epoch in {0,1,2}):
                     for b in range(1):
                         hazy_image = imgs[b, :, :, :]
-                        clear_image = cimg[b, :, :, :]    
+                        clear_image = cimgs[b, :, :, :]    
                         transform = T.ToPILImage()
                         hazy_image = transform(hazy_image)
                         clear_image = transform(clear_image)
