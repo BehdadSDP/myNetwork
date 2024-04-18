@@ -123,7 +123,7 @@ class BaseModel(nn.Module):
             y.append(x if m.i in self.save else None)  # save output
             
             #Image Enhancment:
-            if False:
+            if True:
                 if m.i == 3 :  
                     feats_3 = x 
                 elif m.i == 5 :  
@@ -132,7 +132,7 @@ class BaseModel(nn.Module):
                     feats_7 = x
                     act_rst = True
             if ((act_rst == True) and (self.init_anchor == False)) :
-               #rst_feats = self.img_rst(feats_7, feats_5, feats_3)
+               rst_feats = self.img_rst(feats_7, feats_5, feats_3)
                act_rst = False
 
             if visualize:
