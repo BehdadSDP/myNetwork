@@ -290,7 +290,6 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
         optimizer.zero_grad()
         for i, (imgs, cimgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
-            
             callbacks.run('on_train_batch_start')
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
@@ -352,15 +351,18 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             
             #Save images for checking their similarity
             if False:
-                if(epoch in {0,1,2}):
-                    for b in range(7):
+                if(epoch in {0}):
+                    for b in range(1):
                         hazy_image = imgs[b, :, :, :]
                         clear_image = cimgs[b, :, :, :]    
                         transform = T.ToPILImage()
                         hazy_image = transform(hazy_image)
                         clear_image = transform(clear_image)
-                        hazy_image.save(f"./checking_similarity/{epoch}_{i}_{b}_h.jpg")
-                        clear_image.save(f"./checking_similarity/{epoch}_{i}_{b}_c.jpg")
+                        cpath = paths[0]
+                        hpath = './checking_similarity/images/train/' + cpath.split('/')[-1]
+                        hazy_image.save(hpath)
+                        hpath = './checking_similarity/images/n_train/' + cpath.split('/')[-1]
+                        clear_image.save(hpath)
             # end batch ------------------------------------------------------------------------------------------------
 
         # Scheduler
@@ -462,7 +464,7 @@ def parse_opt(known=False):
     parser.add_argument('--cfg', type=str, default=ROOT / 'cfg/XM-YOLOViT.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default=ROOT / 'data/fogging.yaml', help='dataset.yaml path')
     parser.add_argument('--hyp', type=str, default=ROOT / 'data/hyps/hyp.scratch-low.yaml', help='hyperparameters path')
-    parser.add_argument('--epochs', type=int, default=2, help='total training epochs')
+    parser.add_argument('--epochs', type=int, default=1, help='total training epochs')
     parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs, -1 for autobatch')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
