@@ -770,20 +770,21 @@ class LoadImagesAndLabels(Dataset):
         img = np.ascontiguousarray(img)
         cimg = np.ascontiguousarray(cimg)
         #------------save images and their labels---------------------#
-        if self.rect == False: 
-            save_labels = labels_out[:,1:]
-            save_labels[:, 0] = save_labels[:, 0].int() 
-            np.savetxt(f"./checking_similarity/labels/train/{(self.im_files[index].split('/')[-1]).replace('.jpg','.txt')}", save_labels, fmt='%f')
-            i_path = "./checking_similarity/images/train"
-            ci_path = "./checking_similarity/images/n_train"
-            name = (self.im_files[index].split('/')[-1])
-            cname = (self.cim_files[index].split('/')[-1])
-            i_path = i_path + '/' + name
-            ci_path = ci_path + '/' + cname
-            img_ = np.transpose(img, (1,2,0))
-            cimg_ = np.transpose(cimg, (1,2,0))
-            cv2.imwrite(i_path, img_)
-            cv2.imwrite(ci_path, cimg_)
+        if(False):
+            if self.rect == False: 
+                save_labels = labels_out[:,1:]
+                save_labels[:, 0] = save_labels[:, 0].int() 
+                np.savetxt(f"./checking_similarity/labels/train/{(self.im_files[index].split('/')[-1]).replace('.jpg','.txt')}", save_labels, fmt='%f')
+                i_path = "./checking_similarity/images/train"
+                ci_path = "./checking_similarity/images/n_train"
+                name = (self.im_files[index].split('/')[-1])
+                cname = (self.cim_files[index].split('/')[-1])
+                i_path = i_path + '/' + name
+                ci_path = ci_path + '/' + cname
+                img_ = np.transpose(img, (1,2,0))
+                cimg_ = np.transpose(cimg, (1,2,0))
+                cv2.imwrite(i_path, img_)
+                cv2.imwrite(ci_path, cimg_)
         return torch.from_numpy(img), torch.from_numpy(cimg), labels_out, self.im_files[index], shapes
 
     def load_image(self, i):
