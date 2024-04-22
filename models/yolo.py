@@ -112,7 +112,7 @@ class BaseModel(nn.Module):
 
     def _forward_once(self, x, profile=False, visualize=False):
         y, dt = [], []  # outputs
-        rst_feats = torch.zeros(1, device="cuda")  #save restoration features
+        rst_feats = 0  #save restoration features
         act_rst = False #control restoration status
         for m in self.model:
             if m.f != -1:  # if not from previous layer
@@ -134,11 +134,10 @@ class BaseModel(nn.Module):
             if ((act_rst == True) and (self.init_anchor == False)) :
                rst_feats = self.img_rst(feats_7, feats_5, feats_3)
                act_rst = False
-               
+
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
         return x, rst_feats
-
 
     def _profile_one_layer(self, m, x, dt):
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
