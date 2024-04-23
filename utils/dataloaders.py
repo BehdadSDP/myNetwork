@@ -764,13 +764,8 @@ class LoadImagesAndLabels(Dataset):
         if nl:
             labels_out[:, 1:] = torch.from_numpy(labels)
 
-        # Convert
-        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        cimg = cimg.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        img = np.ascontiguousarray(img)
-        cimg = np.ascontiguousarray(cimg)
         #------------save images and their labels---------------------#
-        if(False):
+        if(True):
             if self.rect == False: 
                 save_labels = labels_out[:,1:]
                 save_labels[:, 0] = save_labels[:, 0].int() 
@@ -781,10 +776,16 @@ class LoadImagesAndLabels(Dataset):
                 cname = (self.cim_files[index].split('/')[-1])
                 i_path = i_path + '/' + name
                 ci_path = ci_path + '/' + cname
-                img_ = np.transpose(img, (1,2,0))
-                cimg_ = np.transpose(cimg, (1,2,0))
-                cv2.imwrite(i_path, img_)
-                cv2.imwrite(ci_path, cimg_)
+                #img_ = np.transpose(img, (1,2,0))
+                #cimg_ = np.transpose(cimg, (1,2,0))
+                cv2.imwrite(i_path, img)
+                cv2.imwrite(ci_path, cimg)
+
+        # Convert
+        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        cimg = cimg.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np.ascontiguousarray(img)
+        cimg = np.ascontiguousarray(cimg)
         return torch.from_numpy(img), torch.from_numpy(cimg), labels_out, self.im_files[index], shapes
 
     def load_image(self, i):

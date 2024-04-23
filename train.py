@@ -347,22 +347,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 callbacks.run('on_train_batch_end', model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
-            
-            #Save images for checking their similarity
-            if False:
-                if(epoch in {0}):
-                    for b in range(1):
-                        hazy_image = imgs[b, :, :, :]
-                        clear_image = cimgs[b, :, :, :]    
-                        transform = T.ToPILImage()
-                        hazy_image = transform(hazy_image)
-                        clear_image = transform(clear_image)
-                        cpath = paths[0]
-                        hpath = './checking_similarity/images/train/' + cpath.split('/')[-1]
-                        hazy_image.save(hpath)
-                        hpath = './checking_similarity/images/n_train/' + cpath.split('/')[-1]
-                        clear_image.save(hpath)
-            # end batch ------------------------------------------------------------------------------------------------
+        
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
