@@ -318,7 +318,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
                 pred, rst_out = model(imgs)  # forward
                 dehaze_loss = dehazeloss(cimgs, rst_out)
                 loss, loss_items = compute_loss(pred, targets.to(device))# loss scaled by batch_size
-                loss = loss + 0.5 * (dehaze_loss.item())
+                loss = loss + 0.5 * (dehaze_loss)
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
