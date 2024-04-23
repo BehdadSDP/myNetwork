@@ -765,7 +765,7 @@ class LoadImagesAndLabels(Dataset):
             labels_out[:, 1:] = torch.from_numpy(labels)
 
         #------------save images and their labels---------------------#
-        if(True):
+        if(False):
             if self.rect == False: 
                 save_labels = labels_out[:,1:]
                 save_labels[:, 0] = save_labels[:, 0].int() 
