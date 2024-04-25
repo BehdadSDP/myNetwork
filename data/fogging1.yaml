@@ -1,7 +1,7 @@
-train: datasets/images/train
-val:   datasets/images/val
+train: datasets/images/train1
+val:   datasets/images/val1
 #
-clear_train: datasets/images/n_train
+clear_train: datasets/images/n_train1
 
 nc: 8
 
