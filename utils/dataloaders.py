@@ -464,6 +464,7 @@ class LoadImagesAndLabels(Dataset):
         self.path = path
         self.cpath = cpath
         self.albumentations = Albumentations(size=img_size) if augment else None
+        self.prefix = prefix
 
         try:
             f = []  # image files
@@ -708,14 +709,13 @@ class LoadImagesAndLabels(Dataset):
         if True:
             # Load image
             img, (h0, w0), (h, w), cimg, (ch0, cw0), (ch, cw) = self.load_image(index)
-
+            labels = self.labels[index].copy()
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             cimg, _, _ = letterbox(cimg, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
-            labels = self.labels[index].copy()
             if labels.size:  # normalized xywh to pixel xyxy format
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
