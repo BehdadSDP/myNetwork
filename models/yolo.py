@@ -112,8 +112,8 @@ class BaseModel(nn.Module):
 
     def _forward_once(self, x, profile=False, visualize=False):
         y, dt = [], []  # outputs
-        rst_feats = 0  #save restoration features
-        act_rst = False #control restoration status
+        restored_features = torch.zeros(0)  #save restoration features
+        active_rst = False #control restoration status
         for m in self.model:
             if m.f != -1:  # if not from previous layer
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
@@ -125,19 +125,19 @@ class BaseModel(nn.Module):
             #Image Enhancment:
             if True:
                 if m.i == 3 :  
-                    feats_3 = x 
+                    features_3 = x 
                 elif m.i == 5 :  
-                    feats_5 = x
+                    features_5 = x
                 elif m.i == 7 :  
-                    feats_7 = x
-                    act_rst = True
-                elif((act_rst == True) and (self.init_anchor == False)) :
-                    rst_feats = self.img_rst(feats_7, feats_5, feats_3)
-                    act_rst = False
+                    features_7 = x
+                    active_rst = True
+                elif((active_rst == True) and (self.init_anchor == False)) :
+                    restored_features = self.img_rst(features_7, features_5, features_3)
+                    active_rst = False
 
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
-        return x, rst_feats
+        return x, restored_features
 
     def _profile_one_layer(self, m, x, dt):
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
@@ -342,15 +342,12 @@ class ImageRst(nn.Module):
             nn.BatchNorm2d(20),
             nn.SiLU()
         )
-
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-
-        # Output layer
+        # inputsize:40*160*160(concat feat1), outputsize:20*320*320
         self.conv_4 = nn.Sequential(
-            nn.ReflectionPad2d(3),
-            nn.Conv2d(20, output_nc, 7),
-            nn.Tanh()
-         )
+            nn.ConvTranspose2d(20, 3, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(3),
+            nn.SiLU()
+        )
 
     def forward(self, x, y, z):
         """Standard forward"""
@@ -371,10 +368,8 @@ class ImageRst(nn.Module):
         c3 = self.conv_3(skip2_de)
 
         # upsample: batch size x 20 x 640 x 640
-        c4 = self.upsample(c3)
+        dehaze = self.conv_4(c3)
 
-        # batch size x 3 x 640 x 640
-        dehaze = self.conv_4(c4)
         return dehaze
 
 def parse_model(d, ch):  # model_dict, input_channels(3)

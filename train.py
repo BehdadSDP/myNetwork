@@ -110,7 +110,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     # Config
     plots = not evolve and not opt.noplots  # create plots
     cuda = device.type != 'cpu'
-    init_seeds(opt.seed + 1 + RANK, deterministic=False)
+    init_seeds(opt.seed + 1 + RANK, deterministic=True)
     with torch_distributed_zero_first(LOCAL_RANK):
         data_dict = data_dict or check_dataset(data)  # check if None
     train_path, val_path, clear_train_path = data_dict['train'], data_dict['val'], data_dict['clear_train']
@@ -315,8 +315,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             
             # Forward
             with torch.cuda.amp.autocast(amp):
-                pred, rst_out = model(imgs)  # forward
-                dehaze_loss = dehazeloss(cimgs, rst_out)
+                pred, restored_features = model(imgs)  # forward
+                dehaze_loss = dehazeloss(cimgs, restored_features)
                 loss, loss_items = compute_loss(pred, targets.to(device))# loss scaled by batch_size
                 loss = loss + 0.5 * (dehaze_loss)
                 if RANK != -1:
