@@ -698,15 +698,15 @@ class LoadImagesAndLabels(Dataset):
     def __getitem__(self, index):
         index = self.indices[index]  # linear, shuffled, or image_weights
         hyp = self.hyp
-        '''mosaic = self.mosaic and random.random() < hyp['mosaic']
+        mosaic = self.mosaic and random.random() < hyp['mosaic']
         if mosaic:
             # Load mosaic
             img, labels, cimg = self.load_mosaic(index)
             shapes = None
             # MixUp augmentation
             if random.random() < hyp['mixup']:
-                img, labels = mixup(img, labels, *self.load_mosaic(random.randint(0, self.n - 1)))'''
-        if True:
+                img, labels = mixup(img, labels, *self.load_mosaic(random.randint(0, self.n - 1)))
+        else:
             # Load image
             img, (h0, w0), (h, w), cimg, (ch0, cw0), (ch, cw) = self.load_image(index)
             labels = self.labels[index].copy()
@@ -719,7 +719,7 @@ class LoadImagesAndLabels(Dataset):
             if labels.size:  # normalized xywh to pixel xyxy format
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
-            '''if self.augment:
+            if self.augment:
                 img, labels, cimg = random_perspective(img,
                                                     cimg,
                                                     labels,
@@ -727,12 +727,34 @@ class LoadImagesAndLabels(Dataset):
                                                     translate=hyp['translate'],
                                                     scale=hyp['scale'],
                                                     shear=hyp['shear'],
-                                                    perspective=hyp['perspective'])'''
+                                                    perspective=hyp['perspective'])
 
         nl = len(labels)  # number of labels
         if nl:
             labels[:, 1:5] = xyxy2xywhn(labels[:, 1:5], w=img.shape[1], h=img.shape[0], clip=True, eps=1E-3)
+        
+        if self.augment:
+            # Albumentations
+            img, labels = self.albumentations(img, labels)
+            nl = len(labels)  # update after albumentations
 
+            # HSV color-space
+            augment_hsv(img, cimg, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+
+            # Flip up-down
+            if random.random() < hyp['flipud']:
+                img = np.flipud(img)
+                cimg = np.flipud(cimg)
+                if nl:
+                    labels[:, 2] = 1 - labels[:, 2]
+
+            # Flip left-right
+            if random.random() < hyp['fliplr']:
+                img = np.fliplr(img)
+                cimg = np.fliplr(cimg)
+                if nl:
+                    labels[:, 1] = 1 - labels[:, 1]
+        
         labels_out = torch.zeros((nl, 6))
         if nl:
             labels_out[:, 1:] = torch.from_numpy(labels)
