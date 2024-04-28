@@ -131,9 +131,9 @@ class BaseModel(nn.Module):
                 elif m.i == 7 :  
                     feats_7 = x
                     act_rst = True
-            if ((act_rst == True) and (self.init_anchor == False)) :
-               rst_feats = self.img_rst(feats_7, feats_5, feats_3)
-               act_rst = False
+                elif((act_rst == True) and (self.init_anchor == False)) :
+                    rst_feats = self.img_rst(feats_7, feats_5, feats_3)
+                    act_rst = False
 
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
