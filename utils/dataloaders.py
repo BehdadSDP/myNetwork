@@ -699,13 +699,17 @@ class LoadImagesAndLabels(Dataset):
         index = self.indices[index]  # linear, shuffled, or image_weights
         hyp = self.hyp
         mosaic = self.mosaic and random.random() < hyp['mosaic']
-        if mosaic:
-            # Load mosaic
-            img, labels, cimg = self.load_mosaic(index)
+        if self.augment:
+            # # Load mosaic
+            # img, labels, cimg = self.load_mosaic(index)
+            # shapes = None
+            # # MixUp augmentation
+            # if random.random() < hyp['mixup']:
+            #     img, labels = mixup(img, labels, *self.load_mosaic(random.randint(0, self.n - 1)))
+            img, (h0, w0), (h, w), cimg, (ch0, cw0), (ch, cw) = self.load_image(index)
+            labels = self.labels[index].copy()
             shapes = None
-            # MixUp augmentation
-            if random.random() < hyp['mixup']:
-                img, labels = mixup(img, labels, *self.load_mosaic(random.randint(0, self.n - 1)))
+
         else:
             # Load image
             img, (h0, w0), (h, w), cimg, (ch0, cw0), (ch, cw) = self.load_image(index)
@@ -728,45 +732,33 @@ class LoadImagesAndLabels(Dataset):
                                                     scale=hyp['scale'],
                                                     shear=hyp['shear'],
                                                     perspective=hyp['perspective'])
-        if(True):
-            if self.rect == False: 
-                np.savetxt(f"./checking_similarity/labels/train/{(self.im_files[index].split('/')[-1]).replace('.jpg','.txt')}", labels, fmt='%f')
-                i_path = "./checking_similarity/images/train"
-                ci_path = "./checking_similarity/images/n_train"
-                name = (self.im_files[index].split('/')[-1])
-                cname = (self.cim_files[index].split('/')[-1])
-                i_path = i_path + '/' + name
-                ci_path = ci_path + '/' + cname
-                #img_ = np.transpose(img, (1,2,0))
-                #cimg_ = np.transpose(cimg, (1,2,0))
-                cv2.imwrite(i_path, img)
-                cv2.imwrite(ci_path, cimg)
+            nl = len(labels)  # number of labels
+            if nl:
+                labels[:, 1:5] = xyxy2xywhn(labels[:, 1:5], w=img.shape[1], h=img.shape[0], clip=True, eps=1E-3)
 
         nl = len(labels)  # number of labels
-        if nl:
-            labels[:, 1:5] = xyxy2xywhn(labels[:, 1:5], w=img.shape[1], h=img.shape[0], clip=True, eps=1E-3)
         
-        if self.augment:
-            # Albumentations
-            img, labels = self.albumentations(img, labels)
-            nl = len(labels)  # update after albumentations
+        # if self.augment:
+        #     # Albumentations
+        #     img, labels = self.albumentations(img, labels)
+        #     nl = len(labels)  # update after albumentations
 
-            # HSV color-space
-            augment_hsv(img, cimg, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+        #     # HSV color-space
+        #     augment_hsv(img, cimg, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
-            # Flip up-down
-            if random.random() < hyp['flipud']:
-                img = np.flipud(img)
-                cimg = np.flipud(cimg)
-                if nl:
-                    labels[:, 2] = 1 - labels[:, 2]
+        #     # Flip up-down
+        #     if random.random() < hyp['flipud']:
+        #         img = np.flipud(img)
+        #         cimg = np.flipud(cimg)
+        #         if nl:
+        #             labels[:, 2] = 1 - labels[:, 2]
 
-            # Flip left-right
-            if random.random() < hyp['fliplr']:
-                img = np.fliplr(img)
-                cimg = np.fliplr(cimg)
-                if nl:
-                    labels[:, 1] = 1 - labels[:, 1]
+        #     # Flip left-right
+        #     if random.random() < hyp['fliplr']:
+        #         img = np.fliplr(img)
+        #         cimg = np.fliplr(cimg)
+        #         if nl:
+        #             labels[:, 1] = 1 - labels[:, 1]
         
         labels_out = torch.zeros((nl, 6))
         if nl:
