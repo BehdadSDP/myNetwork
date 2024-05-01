@@ -728,6 +728,19 @@ class LoadImagesAndLabels(Dataset):
                                                     scale=hyp['scale'],
                                                     shear=hyp['shear'],
                                                     perspective=hyp['perspective'])
+        if(True):
+            if self.rect == False: 
+                np.savetxt(f"./checking_similarity/labels/train/{(self.im_files[index].split('/')[-1]).replace('.jpg','.txt')}", labels, fmt='%f')
+                i_path = "./checking_similarity/images/train"
+                ci_path = "./checking_similarity/images/n_train"
+                name = (self.im_files[index].split('/')[-1])
+                cname = (self.cim_files[index].split('/')[-1])
+                i_path = i_path + '/' + name
+                ci_path = ci_path + '/' + cname
+                #img_ = np.transpose(img, (1,2,0))
+                #cimg_ = np.transpose(cimg, (1,2,0))
+                cv2.imwrite(i_path, img)
+                cv2.imwrite(ci_path, cimg)
 
         nl = len(labels)  # number of labels
         if nl:

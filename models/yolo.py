@@ -219,7 +219,6 @@ class DetectionModel(BaseModel):
         
         #instance of image Restoration class (restoration module)
         self.img_rst = ImageRst(3)
-        
         # Init weights, biases
         initialize_weights(self)
         self.info()
